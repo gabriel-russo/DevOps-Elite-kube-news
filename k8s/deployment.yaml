@@ -1,0 +1,79 @@
+# k3d cluster create meucluster -p "80:30000@loadbalancer"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploypgsql
+spec:
+  selector:
+    matchLabels:
+      app: pgsql
+  template:
+    metadata:
+      labels:
+        app: pgsql
+    spec:
+      containers:
+        - name: pgsql
+          image: postgres:latest
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: kubedevnews
+            - name: POSTGRES_PASSWORD
+              value: Pg#123
+            - name: POSTGRES_DB
+              value: kubedevnews
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicepgsql
+spec:
+  selector:
+    app: pgsql
+  ports:
+    - port: 5432
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploywebpage
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: webpage
+  template:
+    metadata:
+      labels:
+        app: webpage
+    spec:
+      containers:
+        - name: pgsql
+          image: gabrielrussoo/kube-news:v1 # É necessário ter uma imagem no registry, localmente precisa de tweks
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_USERNAME
+              value: kubedevnews
+            - name: DB_PASSWORD
+              value: Pg#123
+            - name: DB_DATABASE
+              value: kubedevnews
+            - name: DB_HOST
+              value: servicepgsql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicewebpage
+spec:
+  selector:
+    app: webpage
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30000
+  type: NodePort
